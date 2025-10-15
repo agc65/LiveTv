@@ -1,52 +1,27 @@
-name: RUN SCRIPT
+name: Sync Fork with Upstream
+
 on:
   schedule:
-    - cron: '0 6 * * *'
-  workflow_dispatch:  # Consente l'esecuzione manuale
+    - cron: '*/30 * * * *'  # Every 30 minutes; adjust as needed
+  workflow_dispatch:  # Manual trigger
 
 jobs:
-  extract-data:
+  sync:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout Fork  # NEW: This checks out your fork's code, required for Git operations
+        uses: actions/checkout@v4  # Use v4 for the latest stable version
         with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 lxml playwright python-dateutil python-dotenv
-          playwright install
+          fetch-depth: 0  # Fetches full history to handle merges properly
+          token: ${{ secrets.GITHUB_TOKEN }}  # Or your PAT if needed
 
-      - name: Run Compiled Script
-        run: |
-          python m3u.py
-      
-      - name: Configura Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Stash delle modifiche locali (se presenti)
-        run: |
-          git diff --quiet || git stash
-
-      - name: Scarica le ultime modifiche dal repository remoto
-        run: git pull --rebase origin main
-
-      - name: Ripristina le modifiche stashed (se presenti)
-        run: |
-          git stash list | grep -q "stash@{0}" && git stash pop || echo "Nessuna modifica da ripristinare"
-
-      - name: Aggiungi il file generato al commit
-        run: |
-          git add .
-          git commit -m "UPDATE" || echo "Nessuna modifica da commitare"
-
-      - name: Pusha il cambiamento
-        run: git push
+      - name: Upstream Sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}  # Default; switch to a PAT secret for more permissions
+          upstream_sync_repo: nzo66/LiveTv  # e.g., 'octocat/Hello-World'
+          upstream_sync_branch: main  # Upstream branch to sync from
+          target_sync_branch: main  # Your fork's branch to update
+          upstream_pull_args: '--ff-only'  # Fast-forward to avoid conflicts
+          target_branch_push_args: '--force'  # Optional: Use cautiously for overwrites
+          test_mode: false  # Set to true for testing without changes
